@@ -449,6 +449,11 @@ paths:
             schema:
               type: object
               properties:
+                eventType:
+                  type: string
+                  enum: ['order.approved', 'order.cancelled', 'order.refunded']
+                  default: 'order.approved'
+                  description: Tipo de evento a ser simulado
                 order_identifier:
                   type: string
                   example: XYZ123
@@ -528,7 +533,7 @@ components:
       properties:
         event:
           type: string
-          enum: ['order.approved', 'order.created']
+          enum: ['order.approved', 'order.created', 'order.cancelled', 'order.refunded']
           description: Tipo do evento
         data:
           $ref: '#/components/schemas/SymplaOrderData'

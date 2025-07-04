@@ -49,9 +49,20 @@ export class WebhookHandler {
       const payload: SymplaWebhookPayload = JSON.parse(req.body.toString());
       console.log(`📋 Evento recebido: ${payload.event}`);
 
-      // 3. Processamento apenas para pedidos aprovados
-      if (payload.event === 'order.approved') {
-        await this.handleOrderApproved(payload.data);
+      // 3. Processamento por tipo de evento
+      switch (payload.event) {
+        case 'order.approved':
+          await this.handleOrderApproved(payload.data);
+          break;
+        case 'order.cancelled':
+        case 'order.refunded':
+          await this.handleOrderCancelled(payload.data);
+          break;
+        case 'order.created':
+          console.log(`📝 Pedido criado: ${payload.data.order_identifier} (aguardando aprovação)`);
+          break;
+        default:
+          console.log(`ℹ️ Evento não processado: ${payload.event}`);
       }
 
       // 4. Resposta rápida para a Sympla
@@ -133,6 +144,49 @@ export class WebhookHandler {
       donationAttempt.status = 'DECLINED';
       donationAttempt.updated_at = new Date();
       this.donationAttempts.set(orderData.order_identifier, donationAttempt);
+    }
+  }
+
+  /**
+   * Processa cancelamento de pedido
+   */
+  private async handleOrderCancelled(orderData: SymplaOrderData): Promise<void> {
+    console.log(`❌ Pedido cancelado: ${orderData.order_identifier}`);
+
+    // Busca tentativa de doação existente
+    const existingAttempt = this.donationAttempts.get(orderData.order_identifier);
+    
+    if (existingAttempt) {
+      // Atualiza status para cancelado
+      existingAttempt.status = 'CANCELLED';
+      existingAttempt.updated_at = new Date();
+      this.donationAttempts.set(orderData.order_identifier, existingAttempt);
+      
+      console.log(`🚫 Doação cancelada para pedido ${orderData.order_identifier}`);
+      
+      // Em produção, aqui seria feita a chamada para a API da Agroforestree
+      // para cancelar a doação se ainda estiver em processamento
+      // await this.agroforestreeClient.cancelDonation(donationId);
+      
+    } else {
+      console.log(`⚠️ Tentativa de cancelar pedido inexistente: ${orderData.order_identifier}`);
+      
+      // Cria registro de cancelamento mesmo se não existia antes
+      const cancelledAttempt: DonationAttempt = {
+        id: uuidv4(),
+        sympla_order_id: orderData.order_identifier,
+        sympla_event_id: orderData.event_id,
+        status: 'CANCELLED',
+        donation_token: '', // Não precisa de token para cancelamentos
+        created_at: new Date(),
+        updated_at: new Date(),
+        donor_name: `${orderData.buyer_first_name} ${orderData.buyer_last_name}`,
+        donor_email: orderData.buyer_email,
+        event_name: orderData.event_name,
+        order_amount: orderData.total_order_amount
+      };
+      
+      this.donationAttempts.set(orderData.order_identifier, cancelledAttempt);
     }
   }
 

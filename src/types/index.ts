@@ -1,6 +1,6 @@
 // Tipos do webhook da Sympla (baseado no relatório técnico)
 export interface SymplaWebhookPayload {
-  event: 'order.approved' | 'order.created';
+  event: 'order.approved' | 'order.created' | 'order.cancelled' | 'order.refunded';
   data: SymplaOrderData;
   timestamp?: string;
 }
@@ -41,7 +41,7 @@ export interface DonationAttempt {
   id: string;
   sympla_order_id: string;
   sympla_event_id: string;
-  status: 'PENDING_USER_ACTION' | 'CONSENT_GIVEN' | 'COMPLETED' | 'DECLINED';
+  status: 'PENDING_USER_ACTION' | 'CONSENT_GIVEN' | 'COMPLETED' | 'DECLINED' | 'CANCELLED';
   donation_token: string;
   created_at: Date;
   updated_at: Date;

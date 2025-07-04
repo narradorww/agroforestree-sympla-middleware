@@ -380,6 +380,7 @@ app.get('/api/donations', (req, res) => {
 // Simula envio de webhook para o próprio middleware
 app.post('/simulate/sympla-webhook', express.json(), async (req, res) => {
   const {
+    eventType = 'order.approved',
     order_identifier = 'XYZ123',
     event_id = 'EVT456',
     event_name = 'Festival Sustentável 2025',
@@ -390,7 +391,7 @@ app.post('/simulate/sympla-webhook', express.json(), async (req, res) => {
   } = req.body;
 
   const payload = {
-    event: 'order.approved',
+    event: eventType,
     data: {
       order_identifier,
       event_id,
