@@ -1,0 +1,387 @@
+openapi: 3.0.3
+info:
+  title: Agroforestree-Sympla Integration API
+  description: |
+    Middleware para integração entre plataforma Sympla e API Agroforestree.
+    
+    Este serviço processa webhooks da Sympla e automaticamente cria doações 
+    na plataforma Agroforestree quando pedidos são aprovados.
+    
+    ## Recursos Principais
+    - Recebimento seguro de webhooks da Sympla
+    - Validação de assinaturas HMAC
+    - Integração com API Agroforestree
+    - Dashboard de monitoramento de doações
+    
+    ## Segurança
+    - Validação de assinaturas HMAC SHA-256
+    - Tokens JWT para autenticação
+    - Prevenção de ataques de replay
+    
+  version: 1.0.0
+  contact:
+    name: Equipe Agroforestree
+    email: tech@agroforestree.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3001
+    description: Servidor de desenvolvimento
+  - url: https://middleware.agroforestree.com
+    description: Servidor de produção
+
+paths:
+  /webhooks/sympla:
+    post:
+      summary: Webhook da Sympla
+      description: |
+        Endpoint para receber webhooks da plataforma Sympla.
+        
+        ## Processo
+        1. Valida assinatura HMAC do webhook
+        2. Processa apenas eventos `order.approved`
+        3. Cria doação automaticamente na API Agroforestree
+        4. Armazena registro da tentativa de doação
+        
+        ## Segurança
+        - Requer header `X-Sympla-Signature` com assinatura HMAC SHA-256
+        - Validação de timestamp para prevenir replay attacks
+        
+      tags:
+        - Webhooks
+      security:
+        - SymplaSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SymplaWebhookPayload'
+            examples:
+              order_approved:
+                summary: Pedido Aprovado
+                value:
+                  event: "order.approved"
+                  timestamp: "2024-01-01T10:00:00Z"
+                  data:
+                    order_identifier: "SPL-12345"
+                    event_id: "EVT-98765"
+                    event_name: "Workshop de Sustentabilidade"
+                    total_order_amount: 120.00
+                    buyer_first_name: "João"
+                    buyer_last_name: "Silva"
+                    buyer_email: "joao.silva@example.com"
+                    order_status: "approved"
+      responses:
+        '200':
+          description: Webhook processado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+              example:
+                status: "success"
+                message: "Webhook processado com sucesso"
+                timestamp: "2024-01-01T10:00:00Z"
+        '401':
+          description: Assinatura inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Invalid signature"
+        '500':
+          description: Erro interno do servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Internal server error"
+
+  /health:
+    get:
+      summary: Health Check
+      description: Verifica se o serviço está funcionando corretamente
+      tags:
+        - Monitoramento
+      responses:
+        '200':
+          description: Serviço funcionando
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "🌱 Middleware Agroforestree ativo"
+                timestamp: "2024-01-01T10:00:00Z"
+                environment: "development"
+
+  /api/donations:
+    get:
+      summary: Listar Doações
+      description: |
+        Retorna lista de todas as tentativas de doação processadas.
+        
+        ## Informações Incluídas
+        - Status da doação (PENDING_USER_ACTION, CONSENT_GIVEN, COMPLETED, DECLINED)
+        - Identificadores do pedido Sympla
+        - Tokens de autenticação
+        - Timestamps de criação e atualização
+        
+      tags:
+        - Doações
+      responses:
+        '200':
+          description: Lista de doações
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DonationsResponse'
+              example:
+                donations:
+                  - id: "uuid-123"
+                    sympla_order_id: "SPL-12345"
+                    sympla_event_id: "EVT-98765"
+                    status: "COMPLETED"
+                    donation_token: "eyJhbGciOiJIUzI1NiIs..."
+                    created_at: "2024-01-01T10:00:00Z"
+                    updated_at: "2024-01-01T10:01:00Z"
+                total: 1
+                timestamp: "2024-01-01T10:00:00Z"
+    /simulate/sympla-webhook:
+    post:
+      summary: Simula envio de webhook da Sympla para testes
+      description: |
+        Endpoint auxiliar para simular localmente o envio de um webhook da Sympla, 
+        gerando assinatura HMAC válida e testando o fluxo de doação.
+
+        Esta rota envia um `order.approved` artificial para o endpoint oficial `/webhooks/sympla`.
+      tags:
+        - Webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                order_identifier:
+                  type: string
+                  example: XYZ123
+                event_id:
+                  type: string
+                  example: EVT456
+                event_name:
+                  type: string
+                  example: Festival Sustentável 2025
+                buyer_first_name:
+                  type: string
+                  example: João
+                buyer_last_name:
+                  type: string
+                  example: Silva
+                buyer_email:
+                  type: string
+                  format: email
+                  example: joao@email.com
+                total_order_amount:
+                  type: number
+                  example: 50.0
+      responses:
+        '200':
+          description: Webhook simulado enviado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ✅ Simulação enviada
+                  webhookResponse:
+                    type: object
+        '500':
+          description: Erro ao simular webhook
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    SymplaSignature:
+      type: apiKey
+      in: header
+      name: X-Sympla-Signature
+      description: |
+        Assinatura HMAC SHA-256 do corpo da requisição.
+        
+        Formato: `sha256={hash}`
+        
+        O hash é calculado usando HMAC SHA-256 com a chave secreta configurada
+        no webhook da Sympla.
+
+  schemas:
+    SymplaWebhookPayload:
+      type: object
+      required:
+        - event
+        - data
+      properties:
+        event:
+          type: string
+          enum: ['order.approved', 'order.created']
+          description: Tipo do evento
+        data:
+          $ref: '#/components/schemas/SymplaOrderData'
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp do evento
+
+    SymplaOrderData:
+      type: object
+      required:
+        - order_identifier
+        - event_id
+        - event_name
+        - total_order_amount
+        - buyer_first_name
+        - buyer_last_name
+        - buyer_email
+        - order_status
+      properties:
+        order_identifier:
+          type: string
+          description: Identificador único do pedido
+          example: "SPL-12345"
+        event_id:
+          type: string
+          description: Identificador do evento
+          example: "EVT-98765"
+        event_name:
+          type: string
+          description: Nome do evento
+          example: "Workshop de Sustentabilidade"
+        total_order_amount:
+          type: number
+          format: float
+          description: Valor total do pedido
+          example: 120.00
+        buyer_first_name:
+          type: string
+          description: Nome do comprador
+          example: "João"
+        buyer_last_name:
+          type: string
+          description: Sobrenome do comprador
+          example: "Silva"
+        buyer_email:
+          type: string
+          format: email
+          description: Email do comprador
+          example: "joao.silva@example.com"
+        order_status:
+          type: string
+          enum: ['approved', 'pending', 'declined']
+          description: Status do pedido
+        participants_full_name_comma_separated:
+          type: string
+          description: Nomes dos participantes separados por vírgula
+          example: "João Silva, Maria Santos"
+        participants_email_comma_separated:
+          type: string
+          description: Emails dos participantes separados por vírgula
+          example: "joao@example.com, maria@example.com"
+
+    DonationAttempt:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID único da tentativa
+          example: "uuid-123"
+        sympla_order_id:
+          type: string
+          description: ID do pedido Sympla
+          example: "SPL-12345"
+        sympla_event_id:
+          type: string
+          description: ID do evento Sympla
+          example: "EVT-98765"
+        status:
+          type: string
+          enum: ['PENDING_USER_ACTION', 'CONSENT_GIVEN', 'COMPLETED', 'DECLINED']
+          description: Status da doação
+        donation_token:
+          type: string
+          description: Token JWT para a doação
+          example: "eyJhbGciOiJIUzI1NiIs..."
+        created_at:
+          type: string
+          format: date-time
+          description: Data de criação
+        updated_at:
+          type: string
+          format: date-time
+          description: Data de atualização
+
+    WebhookResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          example: "Webhook processado com sucesso"
+        timestamp:
+          type: string
+          format: date-time
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "🌱 Middleware Agroforestree ativo"
+        timestamp:
+          type: string
+          format: date-time
+        environment:
+          type: string
+          enum: ['development', 'production', 'test']
+
+    DonationsResponse:
+      type: object
+      properties:
+        donations:
+          type: array
+          items:
+            $ref: '#/components/schemas/DonationAttempt'
+        total:
+          type: integer
+          description: Total de doações
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Mensagem de erro
+          example: "Invalid signature"
+
+tags:
+  - name: Webhooks
+    description: Endpoints para receber webhooks da Sympla
+  - name: Doações
+    description: Operações relacionadas às doações
+  - name: Monitoramento
+    description: Endpoints para monitoramento da aplicação
