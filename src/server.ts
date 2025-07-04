@@ -89,6 +89,249 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
   }
 }));
 
+// 🧾 Middleware para autenticação API Key
+const authenticateApiKey = (req: any, res: any, next: any) => {
+  const apiKey = req.headers['x-api-key'];
+  const validApiKey = process.env.API_KEY || 'agroforestree-api-key-demo';
+  
+  if (!apiKey || apiKey !== validApiKey) {
+    return res.status(401).json({ error: 'API Key inválida ou ausente' });
+  }
+  
+  next();
+};
+
+// 🌱 === FLUXO DO USUÁRIO FINAL === 
+
+// Página de consentimento para doação
+app.get('/donation/initiate', (req, res) => {
+  const token = req.query.token as string;
+  
+  if (!token) {
+    return res.status(400).json({ error: 'Token obrigatório' });
+  }
+
+  // TODO: Validar JWT token
+  // Por enquanto, simula validação básica
+  if (!token.startsWith('eyJ')) {
+    return res.status(400).json({ error: 'Token inválido' });
+  }
+
+  // Página HTML simples para consentimento
+  const html = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plante uma Árvore - Agroforestree</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f0f8f0; }
+        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { text-align: center; color: #2E8B57; margin-bottom: 30px; }
+        .form { margin: 20px 0; }
+        .checkbox { margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 5px; }
+        .buttons { display: flex; gap: 10px; margin-top: 20px; }
+        .btn { padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        .btn-primary { background: #2E8B57; color: white; }
+        .btn-secondary { background: #ccc; color: #333; }
+        .impact { background: #e8f5e8; padding: 15px; border-radius: 5px; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌱 Obrigado por apoiar eventos sustentáveis!</h1>
+            <p>Seu ingresso foi confirmado com sucesso.</p>
+        </div>
+        
+        <div class="impact">
+            <h3>🌍 Seu Impacto Ambiental:</h3>
+            <ul>
+                <li><strong>1 árvore</strong> plantada em sistema agroflorestal</li>
+                <li><strong>165kg de CO₂</strong> compensado em 20 anos</li>
+                <li><strong>1 agricultor familiar</strong> apoiado</li>
+                <li><strong>Biodiversidade</strong> regenerada</li>
+            </ul>
+        </div>
+
+        <form action="/donation/execute" method="POST" class="form">
+            <input type="hidden" name="token" value="${token}">
+            
+            <div class="checkbox">
+                <label>
+                    <input type="checkbox" name="consent" value="on" required>
+                    <strong>Autorizo o plantio de uma árvore em meu nome</strong>
+                    <br><small>De acordo com a LGPD, seus dados serão usados exclusivamente para o plantio e emissão do certificado.</small>
+                </label>
+            </div>
+            
+            <div class="buttons">
+                <button type="submit" class="btn btn-primary">🌳 Sim, plantar minha árvore!</button>
+                <button type="button" class="btn btn-secondary" onclick="window.close()">Não, obrigado</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>`;
+
+  res.send(html);
+});
+
+// Processar consentimento e executar doação
+app.post('/donation/execute', express.urlencoded({ extended: true }), async (req, res) => {
+  const { token, consent } = req.body;
+  
+  if (!token || consent !== 'on') {
+    return res.status(400).json({ error: 'Consentimento obrigatório para prosseguir' });
+  }
+
+  try {
+    // TODO: Validar JWT e buscar dados da tentativa de doação
+    // Por enquanto, simula doação bem-sucedida
+    const donationId = `AGF-USER-${Date.now()}`;
+    
+    console.log(`✅ Doação com consentimento criada: ${donationId}`);
+    console.log(`🔐 Token usado: ${token}`);
+    
+    // Redireciona para página de sucesso
+    res.redirect(`/donation/success?donationId=${donationId}`);
+  } catch (error) {
+    console.error('❌ Erro ao processar doação com consentimento:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Página de sucesso da doação
+app.get('/donation/success', (req, res) => {
+  const donationId = req.query.donationId as string;
+  
+  if (!donationId) {
+    return res.status(400).json({ error: 'ID da doação obrigatório' });
+  }
+
+  const html = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Árvore Plantada! - Agroforestree</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f0f8f0; }
+        .container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
+        .success { color: #2E8B57; margin-bottom: 30px; }
+        .certificate { background: #e8f5e8; padding: 20px; border-radius: 5px; margin: 20px 0; }
+        .btn { display: inline-block; padding: 12px 24px; background: #2E8B57; color: white; text-decoration: none; border-radius: 5px; margin: 10px; }
+        .social { margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success">
+            <h1>🌳 Parabéns! Sua árvore será plantada!</h1>
+            <p>Doação ID: <strong>${donationId}</strong></p>
+        </div>
+        
+        <div class="certificate">
+            <h3>📜 Seu Certificado</h3>
+            <p>Em breve você receberá por email o certificado com localização e detalhes do plantio.</p>
+            <a href="#" class="btn">📥 Baixar Certificado (em breve)</a>
+        </div>
+        
+        <div class="social">
+            <h3>📱 Compartilhe seu impacto!</h3>
+            <a href="#" class="btn">📘 Facebook</a>
+            <a href="#" class="btn">🐦 Twitter</a>
+            <a href="#" class="btn">📸 Instagram</a>
+        </div>
+        
+        <p><small>Obrigado por tornar os eventos mais sustentáveis! 🌱</small></p>
+    </div>
+</body>
+</html>`;
+
+  res.send(html);
+});
+
+// 🎯 === DASHBOARD DO ORGANIZADOR ===
+
+// Métricas de impacto por evento
+app.get('/events/:eventId/impact-summary', authenticateApiKey, (req, res) => {
+  const { eventId } = req.params;
+  
+  // Busca doações relacionadas ao evento
+  const eventDonations = webhookHandler.getDonations().filter(
+    donation => donation.sympla_event_id === eventId
+  );
+  
+  const totalDonations = eventDonations.length;
+  const completedDonations = eventDonations.filter(d => d.status === 'COMPLETED').length;
+  
+  // Simula dados do evento (em produção viria da API da Sympla)
+  const mockTotalTickets = Math.max(totalDonations * 4, 100); // Simula que 25% dos compradores doam
+  const engagementRate = totalDonations > 0 ? ((totalDonations / mockTotalTickets) * 100).toFixed(1) : '0.0';
+  
+  const summary = {
+    eventId,
+    eventName: eventDonations[0]?.event_name || `Evento ${eventId}`,
+    summary: {
+      totalTickets: mockTotalTickets,
+      totalDonations,
+      engagementRate: `${engagementRate}%`,
+      treesPlanted: completedDonations,
+      co2Compensated: `${(completedDonations * 0.165).toFixed(2)} toneladas`,
+      farmersSupported: completedDonations,
+      totalDonationValue: `R$ ${(totalDonations * 5).toFixed(2)}`
+    },
+    period: {
+      startDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // Últimas 24h
+      endDate: new Date().toISOString()
+    }
+  };
+  
+  res.json(summary);
+});
+
+// Gerar QR Code para evento
+app.get('/events/:eventId/qrcode', authenticateApiKey, (req, res) => {
+  const { eventId } = req.params;
+  const size = parseInt(req.query.size as string) || 400;
+  const format = req.query.format as string || 'png';
+  
+  // URL que o QR Code vai apontar
+  const donationUrl = `${req.protocol}://${req.get('host')}/donation/initiate?token=EVENTO_${eventId}_TOKEN`;
+  
+  // Por enquanto, retorna SVG simples
+  // Em produção, usaria biblioteca como 'qrcode' ou 'qr-image'
+  const qrCodeSVG = `
+<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="white"/>
+  <rect x="10%" y="10%" width="80%" height="80%" fill="none" stroke="#2E8B57" stroke-width="2"/>
+  <text x="50%" y="30%" text-anchor="middle" font-family="Arial" font-size="16" fill="#2E8B57">
+    QR Code para
+  </text>
+  <text x="50%" y="45%" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">
+    Evento ${eventId}
+  </text>
+  <text x="50%" y="60%" text-anchor="middle" font-family="Arial" font-size="14" fill="#2E8B57">
+    🌱 Plante uma Árvore
+  </text>
+  <text x="50%" y="75%" text-anchor="middle" font-family="Arial" font-size="8" fill="#666">
+    ${donationUrl}
+  </text>
+</svg>`;
+
+  if (format === 'svg') {
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.send(qrCodeSVG);
+  } else {
+    // Para PNG, retorna o SVG por enquanto (em produção converteria)
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.send(qrCodeSVG);
+  }
+});
+
 // 🔁 Endpoint Webhook Sympla
 app.post('/webhooks/sympla', (req, res) => webhookHandler.processWebhook(req, res));
 
