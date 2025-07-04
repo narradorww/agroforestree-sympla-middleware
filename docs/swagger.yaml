@@ -27,10 +27,10 @@ info:
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: http://localhost:3001
-    description: Servidor de desenvolvimento
   - url: https://agroforestree-sympla-middleware.onrender.com
     description: Servidor de produção (Render)
+  - url: http://localhost:3001
+    description: Servidor de desenvolvimento
 
 paths:
   /webhooks/sympla:
