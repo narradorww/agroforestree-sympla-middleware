@@ -6,6 +6,7 @@ import YAML from 'yamljs';
 import path from 'path';
 import crypto from 'crypto';
 import axios from 'axios';
+import QRCode from 'qrcode';
 import { WebhookHandler } from './handlers/webhookHandler';
 import { AgroforestreeClient } from './services/agroforestreeClient';
 import { EnvironmentConfig } from './types';
@@ -294,41 +295,51 @@ app.get('/events/:eventId/impact-summary', authenticateApiKey, (req, res) => {
 });
 
 // Gerar QR Code para evento
-app.get('/events/:eventId/qrcode', authenticateApiKey, (req, res) => {
+app.get('/events/:eventId/qrcode', authenticateApiKey, async (req, res) => {
   const { eventId } = req.params;
   const size = parseInt(req.query.size as string) || 400;
-  const format = req.query.format as string || 'png';
+  const format = req.query.format as string || 'svg';
   
   // URL que o QR Code vai apontar
-  const donationUrl = `${req.protocol}://${req.get('host')}/donation/initiate?token=EVENTO_${eventId}_TOKEN`;
+  const donationToken = `eyJhbGciOiJIUzI1NiIs_EVENTO_${eventId}_TOKEN`;
+  const donationUrl = `${req.protocol}://${req.get('host')}/donation/initiate?token=${donationToken}`;
   
-  // Por enquanto, retorna SVG simples
-  // Em produção, usaria biblioteca como 'qrcode' ou 'qr-image'
-  const qrCodeSVG = `
-<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-  <rect width="100%" height="100%" fill="white"/>
-  <rect x="10%" y="10%" width="80%" height="80%" fill="none" stroke="#2E8B57" stroke-width="2"/>
-  <text x="50%" y="30%" text-anchor="middle" font-family="Arial" font-size="16" fill="#2E8B57">
-    QR Code para
-  </text>
-  <text x="50%" y="45%" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">
-    Evento ${eventId}
-  </text>
-  <text x="50%" y="60%" text-anchor="middle" font-family="Arial" font-size="14" fill="#2E8B57">
-    🌱 Plante uma Árvore
-  </text>
-  <text x="50%" y="75%" text-anchor="middle" font-family="Arial" font-size="8" fill="#666">
-    ${donationUrl}
-  </text>
-</svg>`;
-
-  if (format === 'svg') {
-    res.setHeader('Content-Type', 'image/svg+xml');
-    res.send(qrCodeSVG);
-  } else {
-    // Para PNG, retorna o SVG por enquanto (em produção converteria)
-    res.setHeader('Content-Type', 'image/svg+xml');
-    res.send(qrCodeSVG);
+  try {
+    if (format === 'svg') {
+      // Gerar QR Code como SVG
+      const qrCodeSVG = await QRCode.toString(donationUrl, {
+        type: 'svg',
+        width: size,
+        margin: 2,
+        color: {
+          dark: '#2E8B57',  // Verde Agroforestree
+          light: '#FFFFFF'
+        }
+      });
+      
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.send(qrCodeSVG);
+    } else {
+      // Gerar QR Code como PNG (Data URL)
+      const qrCodeDataURL = await QRCode.toDataURL(donationUrl, {
+        width: size,
+        margin: 2,
+        color: {
+          dark: '#2E8B57',
+          light: '#FFFFFF'
+        }
+      });
+      
+      // Converter Data URL para Buffer
+      const base64Data = qrCodeDataURL.replace(/^data:image\/png;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      
+      res.setHeader('Content-Type', 'image/png');
+      res.send(buffer);
+    }
+  } catch (error) {
+    console.error('❌ Erro ao gerar QR Code:', error);
+    res.status(500).json({ error: 'Erro ao gerar QR Code' });
   }
 });
 
