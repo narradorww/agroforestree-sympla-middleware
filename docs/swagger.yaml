@@ -134,6 +134,8 @@ paths:
         
       tags:
         - Doações
+      security:
+        - ApiKeyAuth: []
       responses:
         '200':
           description: Lista de doações
@@ -152,7 +154,285 @@ paths:
                     updated_at: "2024-01-01T10:01:00Z"
                 total: 1
                 timestamp: "2024-01-01T10:00:00Z"
-    /simulate/sympla-webhook:
+
+  /donation/initiate:
+    get:
+      summary: Página de Consentimento para Doação
+      description: |
+        Página que o usuário acessa após comprar ingresso (via link/QR Code).
+        
+        ## Fluxo LGPD-Compliant:
+        1. Usuário compra ingresso na Sympla
+        2. Recebe link/QR Code com donation_token
+        3. Acessa esta página para dar consentimento explícito
+        4. Escolhe se quer plantar uma árvore ou não
+        
+        ## Interface:
+        - Informações do evento e impacto ambiental
+        - Checkbox de consentimento explícito (LGPD)
+        - Botões "Sim, plantar minha árvore" / "Não, obrigado"
+        
+      tags:
+        - Fluxo do Usuário
+      parameters:
+        - name: token
+          in: query
+          required: true
+          description: Token JWT da tentativa de doação
+          schema:
+            type: string
+            example: "eyJhbGciOiJIUzI1NiIs..."
+      responses:
+        '200':
+          description: Página de consentimento renderizada
+          content:
+            text/html:
+              schema:
+                type: string
+              example: |
+                <!DOCTYPE html>
+                <html>
+                  <head><title>Plante uma Árvore - Agroforestree</title></head>
+                  <body>
+                    <h1>🌱 Obrigado por apoiar eventos sustentáveis!</h1>
+                    <p>Seu ingresso para <strong>Workshop Sustentabilidade</strong> foi confirmado.</p>
+                    <form action="/donation/execute" method="POST">
+                      <input type="hidden" name="token" value="...">
+                      <label>
+                        <input type="checkbox" name="consent" required>
+                        Autorizo o plantio de uma árvore em meu nome (LGPD)
+                      </label>
+                      <button type="submit">🌳 Sim, plantar minha árvore!</button>
+                    </form>
+                  </body>
+                </html>
+        '400':
+          description: Token inválido ou expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Token inválido ou expirado"
+
+  /donation/execute:
+    post:
+      summary: Executar Doação com Consentimento
+      description: |
+        Processa o consentimento do usuário e executa a doação na Agroforestree.
+        
+        ## Processo:
+        1. Valida o token JWT da tentativa
+        2. Verifica consentimento explícito
+        3. Chama API Agroforestree para criar doação
+        4. Redireciona para página de confirmação com certificado
+        
+        ## Conformidade LGPD:
+        - Consentimento explícito e informado
+        - Finalidade específica (plantio de árvore)
+        - Possibilidade de recusa sem prejuízo
+        
+      tags:
+        - Fluxo do Usuário
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - token
+                - consent
+              properties:
+                token:
+                  type: string
+                  description: Token JWT da tentativa de doação
+                  example: "eyJhbGciOiJIUzI1NiIs..."
+                consent:
+                  type: string
+                  enum: ['on']
+                  description: Checkbox de consentimento (deve ser 'on')
+      responses:
+        '302':
+          description: Redirecionamento para página de confirmação
+          headers:
+            Location:
+              schema:
+                type: string
+                example: "/donation/success?donationId=AGF-1234567890"
+        '400':
+          description: Dados inválidos ou consentimento não dado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Consentimento obrigatório para prosseguir"
+
+  /donation/success:
+    get:
+      summary: Página de Sucesso da Doação
+      description: |
+        Página de confirmação após doação bem-sucedida.
+        
+        ## Conteúdo:
+        - Confirmação da doação realizada
+        - Link para certificado PDF
+        - Informações sobre impacto ambiental
+        - Compartilhamento social
+        
+      tags:
+        - Fluxo do Usuário
+      parameters:
+        - name: donationId
+          in: query
+          required: true
+          description: ID da doação criada na Agroforestree
+          schema:
+            type: string
+            example: "AGF-1234567890"
+      responses:
+        '200':
+          description: Página de confirmação renderizada
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /events/{eventId}/impact-summary:
+    get:
+      summary: Resumo de Impacto por Evento
+      description: |
+        Dashboard executivo para organizadores de evento.
+        
+        ## Métricas Incluídas:
+        - Total de doações/árvores plantadas
+        - Taxa de engajamento (% de compradores que doaram)
+        - Impacto de CO₂ compensado
+        - Agricultores familiares beneficiados
+        
+        ## Caso de Uso:
+        - Relatórios pós-evento para organizadores
+        - Métricas ESG para relatórios corporativos
+        - Dados para marketing de próximos eventos
+        
+      tags:
+        - Dashboard Organizador
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          description: ID do evento na Sympla
+          schema:
+            type: string
+            example: "EVT-98765"
+      responses:
+        '200':
+          description: Métricas de impacto do evento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventImpactSummary'
+              example:
+                eventId: "EVT-98765"
+                eventName: "Workshop de Sustentabilidade"
+                summary:
+                  totalTickets: 600
+                  totalDonations: 152
+                  engagementRate: "25.3%"
+                  treesPlanted: 152
+                  co2Compensated: "25.08 toneladas"
+                  farmersSupported: 152
+                  totalDonationValue: "R$ 760,00"
+                period:
+                  startDate: "2024-01-01T00:00:00Z"
+                  endDate: "2024-01-01T23:59:59Z"
+        '401':
+          description: Chave de API inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Evento não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /events/{eventId}/qrcode:
+    get:
+      summary: Gerar QR Code para Evento
+      description: |
+        Gera QR Code personalizado para o evento, apontando para página de doação.
+        
+        ## Funcionalidades:
+        - QR Code dinâmico com logo da Agroforestree
+        - Link direto para /donation/initiate
+        - Personalizável com cores do evento
+        - Diferentes tamanhos (query parameter)
+        
+        ## Uso:
+        - Telões durante o evento
+        - Material gráfico de divulgação
+        - Redes sociais do organizador
+        - Email marketing pós-evento
+        
+      tags:
+        - Dashboard Organizador
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          description: ID do evento na Sympla
+          schema:
+            type: string
+            example: "EVT-98765"
+        - name: size
+          in: query
+          required: false
+          description: Tamanho do QR Code em pixels
+          schema:
+            type: integer
+            enum: [200, 400, 800]
+            default: 400
+        - name: format
+          in: query
+          required: false
+          description: Formato da imagem
+          schema:
+            type: string
+            enum: ['png', 'svg']
+            default: 'png'
+      responses:
+        '200':
+          description: Imagem do QR Code gerada
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/svg+xml:
+              schema:
+                type: string
+        '401':
+          description: Chave de API inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Evento não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /simulate/sympla-webhook:
     post:
       summary: Simula envio de webhook da Sympla para testes
       description: |
@@ -224,6 +504,20 @@ components:
         
         O hash é calculado usando HMAC SHA-256 com a chave secreta configurada
         no webhook da Sympla.
+
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        Chave de API para acesso às rotas de gestão e dashboard.
+        
+        Esta chave protege endpoints sensíveis como:
+        - Listagem de doações
+        - Métricas de eventos
+        - Geração de QR Codes
+        
+        Obtenha sua chave no painel administrativo da Agroforestree.
 
   schemas:
     SymplaWebhookPayload:
@@ -378,10 +672,98 @@ components:
           description: Mensagem de erro
           example: "Invalid signature"
 
+    EventImpactSummary:
+      type: object
+      description: Resumo de impacto ambiental de um evento específico
+      properties:
+        eventId:
+          type: string
+          description: ID do evento na Sympla
+          example: "EVT-98765"
+        eventName:
+          type: string
+          description: Nome do evento
+          example: "Workshop de Sustentabilidade"
+        summary:
+          type: object
+          description: Métricas consolidadas do evento
+          properties:
+            totalTickets:
+              type: integer
+              description: Total de ingressos vendidos
+              example: 600
+            totalDonations:
+              type: integer
+              description: Total de doações/árvores plantadas
+              example: 152
+            engagementRate:
+              type: string
+              description: Taxa de engajamento (% de compradores que doaram)
+              example: "25.3%"
+            treesPlanted:
+              type: integer
+              description: Número de árvores plantadas
+              example: 152
+            co2Compensated:
+              type: string
+              description: CO₂ compensado em toneladas
+              example: "25.08 toneladas"
+            farmersSupported:
+              type: integer
+              description: Agricultores familiares beneficiados
+              example: 152
+            totalDonationValue:
+              type: string
+              description: Valor total das doações
+              example: "R$ 760,00"
+        period:
+          type: object
+          description: Período de análise
+          properties:
+            startDate:
+              type: string
+              format: date-time
+              description: Data de início do evento
+              example: "2024-01-01T00:00:00Z"
+            endDate:
+              type: string
+              format: date-time
+              description: Data de fim do evento
+              example: "2024-01-01T23:59:59Z"
+
+    ConsentFormData:
+      type: object
+      description: Dados do formulário de consentimento LGPD
+      required:
+        - token
+        - consent
+      properties:
+        token:
+          type: string
+          description: Token JWT da tentativa de doação
+          example: "eyJhbGciOiJIUzI1NiIs..."
+        consent:
+          type: string
+          enum: ['on']
+          description: Confirmação de consentimento explícito
+        donor_name:
+          type: string
+          description: Nome do doador (opcional para personalização)
+          example: "João Silva"
+        message:
+          type: string
+          description: Mensagem personalizada (opcional)
+          maxLength: 200
+          example: "Pela sustentabilidade do planeta!"
+
 tags:
   - name: Webhooks
     description: Endpoints para receber webhooks da Sympla
   - name: Doações
-    description: Operações relacionadas às doações
+    description: Operações relacionadas às doações (requer autenticação)
+  - name: Fluxo do Usuário
+    description: Páginas e formulários para interação direta com usuários finais
+  - name: Dashboard Organizador
+    description: Ferramentas e métricas para organizadores de eventos (requer autenticação)
   - name: Monitoramento
     description: Endpoints para monitoramento da aplicação
