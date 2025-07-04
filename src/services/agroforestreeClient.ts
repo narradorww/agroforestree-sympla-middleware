@@ -30,7 +30,7 @@ export class AgroforestreeClient {
   async createDonation(donationData: AgroforestreeApiRequest): Promise<AgroforestreeApiResponse> {
     try {
       // Para PoC: simula resposta da API da Agroforestree
-      if (this.client.defaults.baseURL?.includes('api.agroforestree.com')) {
+      if (this.client.defaults.baseURL?.includes('agroforestree.com')) {
         console.log('🚧 Simulando API Agroforestree para PoC...');
         
         // Simula delay da API real
