@@ -35,9 +35,27 @@ const webhookHandler = new WebhookHandler(
 // Inicializa Express
 const app = express();
 
-// CORS para permitir comunicação com frontend
+// CORS para permitir comunicação com frontend e Swagger
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    // Permite requisições sem origin (Postman, curl, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Lista de origens permitidas
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      process.env.FRONTEND_URL,
+      process.env.RENDER_EXTERNAL_URL, // URL automática do Render
+    ].filter(Boolean); // Remove valores undefined/null
+    
+    // Permite qualquer subdomínio do Render
+    if (origin.includes('.onrender.com') || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    return callback(null, true); // Para desenvolvimento, permitir tudo
+  },
   credentials: true
 }));
 

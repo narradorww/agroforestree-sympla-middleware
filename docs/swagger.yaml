@@ -29,8 +29,8 @@ info:
 servers:
   - url: http://localhost:3001
     description: Servidor de desenvolvimento
-  - url: https://middleware.agroforestree.com
-    description: Servidor de produção
+  - url: https://agroforestree-sympla-middleware.onrender.com
+    description: Servidor de produção (Render)
 
 paths:
   /webhooks/sympla:
