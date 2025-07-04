@@ -16,7 +16,7 @@ dotenv.config();
 // Configuração do ambiente
 const config: EnvironmentConfig = {
   PORT: parseInt(process.env.PORT || '3001'),
-  SYMPLA_WEBHOOK_SECRET: process.env.SYMPLA_WEBHOOK_SECRET || 'seu-webhook-secret',
+  SYMPLA_WEBHOOK_SECRET: process.env.SYMPLA_WEBHOOK_SECRET || 'test-webhook-secret-123',
   AGROFORESTREE_API_URL: process.env.AGROFORESTREE_API_URL || 'https://api.agroforestree.com',
   AGROFORESTREE_API_KEY: process.env.AGROFORESTREE_API_KEY || 'sua-api-key',
   NODE_ENV: (process.env.NODE_ENV as 'development' | 'production' | 'test') || 'development'
