@@ -26,16 +26,22 @@ export class WebhookHandler {
   async processWebhook(req: Request, res: Response): Promise<void> {
     try {
       console.log('📨 Webhook recebido da Sympla');
-      console.log('📋 Headers:', req.headers);
+      console.log('📋 Headers:', JSON.stringify(req.headers, null, 2));
       console.log('📄 Body length:', req.body.length);
+      console.log('📄 Raw Body:', req.body.toString());
 
       // 1. Validação de assinatura
       const signature = req.headers['x-sympla-signature'] as string;
       console.log('🔐 Signature recebida:', signature);
+      console.log('🔐 Origin:', req.headers.origin);
       
       if (!this.signatureValidator.validateSignature(req.body, signature)) {
-        console.error('🚨 Assinatura inválida');
-        res.status(401).json({ error: 'Invalid signature' });
+        console.error('🚨 Assinatura inválida - rejeitando requisição');
+        res.status(401).json({ 
+          error: 'Invalid signature',
+          received: signature,
+          origin: req.headers.origin 
+        });
         return;
       }
 

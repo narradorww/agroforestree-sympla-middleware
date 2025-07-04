@@ -45,12 +45,15 @@ app.use(cors({
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:3001',
+      'https://sympla-simulator.vercel.app', // URL específica da Vercel
       process.env.FRONTEND_URL,
       process.env.RENDER_EXTERNAL_URL, // URL automática do Render
     ].filter(Boolean); // Remove valores undefined/null
     
-    // Permite qualquer subdomínio do Render
-    if (origin.includes('.onrender.com') || allowedOrigins.includes(origin)) {
+    // Permite qualquer subdomínio do Render ou Vercel
+    if (origin.includes('.onrender.com') || 
+        origin.includes('.vercel.app') || 
+        allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     
