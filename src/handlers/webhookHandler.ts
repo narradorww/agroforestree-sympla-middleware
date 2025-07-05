@@ -55,8 +55,10 @@ export class WebhookHandler {
           await this.handleOrderApproved(payload.data);
           break;
         case 'order.cancelled':
-        case 'order.refunded':
           await this.handleOrderCancelled(payload.data);
+          break;
+        case 'order.refunded':
+          await this.handleOrderRefunded(payload.data);
           break;
         case 'order.created':
           console.log(`📝 Pedido criado: ${payload.data.order_identifier} (aguardando aprovação)`);
@@ -187,6 +189,49 @@ export class WebhookHandler {
       };
       
       this.donationAttempts.set(orderData.order_identifier, cancelledAttempt);
+    }
+  }
+
+  /**
+   * Processa reembolso de pedido
+   */
+  private async handleOrderRefunded(orderData: SymplaOrderData): Promise<void> {
+    console.log(`💰 Pedido reembolsado: ${orderData.order_identifier}`);
+
+    // Busca tentativa de doação existente
+    const existingAttempt = this.donationAttempts.get(orderData.order_identifier);
+    
+    if (existingAttempt) {
+      // Atualiza status para reembolsado
+      existingAttempt.status = 'REFUNDED';
+      existingAttempt.updated_at = new Date();
+      this.donationAttempts.set(orderData.order_identifier, existingAttempt);
+      
+      console.log(`💸 Doação reembolsada para pedido ${orderData.order_identifier}`);
+      
+      // Em produção, aqui seria feita a chamada para a API da Agroforestree
+      // para processar o reembolso da doação
+      // await this.agroforestreeClient.refundDonation(donationId);
+      
+    } else {
+      console.log(`⚠️ Tentativa de reembolsar pedido inexistente: ${orderData.order_identifier}`);
+      
+      // Cria registro de reembolso mesmo se não existia antes
+      const refundedAttempt: DonationAttempt = {
+        id: uuidv4(),
+        sympla_order_id: orderData.order_identifier,
+        sympla_event_id: orderData.event_id,
+        status: 'REFUNDED',
+        donation_token: `token_${Date.now()}`,
+        created_at: new Date(),
+        updated_at: new Date(),
+        donor_name: `${orderData.buyer_first_name} ${orderData.buyer_last_name}`,
+        donor_email: orderData.buyer_email,
+        event_name: orderData.event_name,
+        order_amount: orderData.total_order_amount
+      };
+      
+      this.donationAttempts.set(orderData.order_identifier, refundedAttempt);
     }
   }
 

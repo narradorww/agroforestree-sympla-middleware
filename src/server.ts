@@ -380,15 +380,22 @@ app.get('/api/donations', (req, res) => {
 // Simula envio de webhook para o próprio middleware
 app.post('/simulate/sympla-webhook', express.json(), async (req, res) => {
   const {
-    eventType = 'order.approved',
+    event: eventType = 'order.approved',
+    data: requestData
+  } = req.body;
+
+  const {
     order_identifier = 'XYZ123',
     event_id = 'EVT456',
     event_name = 'Festival Sustentável 2025',
     buyer_first_name = 'João',
     buyer_last_name = 'Silva',
     buyer_email = 'joao@email.com',
-    total_order_amount = 50.00
-  } = req.body;
+    total_order_amount = 50.00,
+    order_status = eventType === 'order.approved' ? 'approved' : 
+                   eventType === 'order.cancelled' ? 'cancelled' :
+                   eventType === 'order.refunded' ? 'refunded' : 'pending'
+  } = requestData || {};
 
   const payload = {
     event: eventType,
@@ -396,7 +403,7 @@ app.post('/simulate/sympla-webhook', express.json(), async (req, res) => {
       order_identifier,
       event_id,
       event_name,
-      order_status: 'approved',
+      order_status,
       buyer_first_name,
       buyer_last_name,
       buyer_email,

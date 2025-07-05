@@ -41,7 +41,7 @@ export interface DonationAttempt {
   id: string;
   sympla_order_id: string;
   sympla_event_id: string;
-  status: 'PENDING_USER_ACTION' | 'CONSENT_GIVEN' | 'COMPLETED' | 'DECLINED' | 'CANCELLED';
+  status: 'PENDING_USER_ACTION' | 'CONSENT_GIVEN' | 'COMPLETED' | 'DECLINED' | 'CANCELLED' | 'REFUNDED';
   donation_token: string;
   created_at: Date;
   updated_at: Date;
